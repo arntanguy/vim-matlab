@@ -3,10 +3,12 @@
 __author__ = 'daeyun'
 
 use_pexpect = True
-try:
-    import pexpect
-except ImportError:
-    use_pexpect = False
+if use_pexpect:
+    try:
+	import pexpect
+    except ImportError:
+	use_pexpect = False
+if not use_pexpect:
     from subprocess import Popen, PIPE
 
 import SocketServer
@@ -51,26 +53,37 @@ class Matlab:
 
         if run_timer:
             command = ("{randvar}=tic;{code},try,toc({randvar}),catch,end"
-                       ",clear('{randvar}');\n").format(randvar=rand_var,
-                                                        code=code.strip())
+                ",clear('{randvar}');\n").format(randvar=rand_var,
+                    code=code.strip())
         else:
-            command = "{}\n".format(code.strip())
+            command = "{}\n".format(code)
 
         global hide_until_newline
         while num_retry < 3:
-            try:
-                if use_pexpect:
-                    hide_until_newline = True
-                    self.proc.send(command)
-                else:
-                    self.proc.stdin.write(command)
-                    self.proc.stdin.flush()
-                break
-            except Exception as ex:
-                print ex
-                self.launch_process()
-                num_retry += 1
-                time.sleep(1)
+        	try:
+		    if use_pexpect:
+			hide_until_newline = True
+			if len(command) > 1024:
+			    split_command = command.split(';')
+				for c in split_command:
+				    self.proc.send(c+';...\n')
+			else:
+			    self.proc.send(command)
+		    else:
+			if len(command) > 1024:
+			    split_command = command.split(';')
+				for c in split_command:
+				    self.proc.stdin.write(c+';...\n')
+				    self.proc.stdin.flush()
+			else:
+			    self.proc.stdin.write(command)
+				    self.proc.stdin.flush()
+		    break
+        	except Exception as ex:
+        	    print ex
+        	    self.launch_process()
+        	    num_retry += 1
+        	    time.sleep(1)
 
 
 class TCPHandler(SocketServer.StreamRequestHandler):
